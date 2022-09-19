@@ -31,7 +31,7 @@ services:
       - traefik
       - default
   netbox-worker:
-    image: netboxcommunity/netbox
+    image: netboxcommunity/netbox:${VERSION-v3.2-2.1.0}
     env_file: env/netbox.env
     user: 'unit:root'
     volumes:
@@ -52,7 +52,7 @@ services:
       - default
 
   netbox-housekeeping:
-    image: netboxcommunity/netbox
+    image: netboxcommunity/netbox:${VERSION-v3.2-2.1.0}
     env_file: env/netbox.env
     user: 'unit:root'
     volumes:
