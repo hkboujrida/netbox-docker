@@ -156,3 +156,10 @@ IMAGE=netboxcommunity/netbox:latest ./test.sh
 
 This repository is currently maintained by the community.
 Please consider sponsoring the maintainers of this project.
+
+
+## backup
+mkdir -p /data/backup/netbox
+docker run -it --rm --network netbox-docker_default -v /data/backup/netbox:/var/lib/postgresql/data/pgdata postgres pg_dump -h postgres -U netbox -d netbox -a -f /var/lib/postgresql/data/pgdata/mydump.sql
+
+cat netbox-30-30-22.sql | docker exec -i netbox_postgres.1.agt3mnu3mpmymemkylcvrdrjl psql -U netb

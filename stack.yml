@@ -1,0 +1,118 @@
+version: '3.4'
+services:
+  netbox:
+    image: netboxcommunity/netbox
+    labels:
+    # Explicitly tell Traefik to expose this container
+    - "traefik.enable=true"
+    # The domain the service will respond to
+    - "traefik.http.routers.netbox.rule=Host(`netbox.local.edgeprime.io`)"
+    # Allow request only from the predefined entry point named "web"
+    - "traefik.http.routers.netbox.entrypoints=websecure"
+    - "traefik.http.routers.netbox.tls.certresolver=letsencrypt"
+    - "traefik.docker.network=essentials_default"
+    - "traefik.http.services.netbox.loadbalancer.server.port=8080"
+
+    depends_on:
+    - postgres
+    - redis
+    - redis-cache
+    - netbox-worker
+    env_file: env/netbox.env
+    user: 'unit:root'
+    volumes:
+    - ./startup_scripts:/opt/netbox/startup_scripts:z,ro
+    - ./initializers:/opt/netbox/initializers:z,ro
+    - ./configuration:/etc/netbox/config:z,ro
+    - ./reports:/etc/netbox/reports:z,ro
+    - ./scripts:/etc/netbox/scripts:z,ro
+    - netbox-media-files:/opt/netbox/netbox/media:z
+    networks:
+      - traefik
+      - default
+  netbox-worker:
+    image: netboxcommunity/netbox
+    env_file: env/netbox.env
+    user: 'unit:root'
+    volumes:
+    - ./startup_scripts:/opt/netbox/startup_scripts:z,ro
+    - ./initializers:/opt/netbox/initializers:z,ro
+    - ./configuration:/etc/netbox/config:z,ro
+    - ./reports:/etc/netbox/reports:z,ro
+    - ./scripts:/etc/netbox/scripts:z,ro
+    - netbox-media-files:/opt/netbox/netbox/media:z
+    depends_on:
+    - redis
+    - postgres
+    command:
+    - /opt/netbox/venv/bin/python
+    - /opt/netbox/netbox/manage.py
+    - rqworker
+    networks:
+      - default
+
+  netbox-housekeeping:
+    image: netboxcommunity/netbox
+    env_file: env/netbox.env
+    user: 'unit:root'
+    volumes:
+    - ./startup_scripts:/opt/netbox/startup_scripts:z,ro
+    - ./initializers:/opt/netbox/initializers:z,ro
+    - ./configuration:/etc/netbox/config:z,ro
+    - ./reports:/etc/netbox/reports:z,ro
+    - ./scripts:/etc/netbox/scripts:z,ro
+    - netbox-media-files:/opt/netbox/netbox/media:z
+    depends_on:
+    - redis
+    - postgres
+    command:
+    - /opt/netbox/housekeeping.sh
+    networks:
+      - default
+
+  # postgres
+  postgres:
+    image: postgres:14-alpine
+    env_file: env/postgres.env
+    volumes:
+    - netbox-postgres-data:/var/lib/postgresql/data
+    networks:
+      - default
+  # redis
+  redis:
+    image: redis:7-alpine
+    command:
+    - sh
+    - -c # this is to evaluate the $REDIS_PASSWORD from the env
+    - redis-server --appendonly yes --requirepass $$REDIS_PASSWORD ## $$ because of docker-compose
+    env_file: env/redis.env
+    volumes:
+    - netbox-redis-data:/data
+    networks:
+      - default
+
+  redis-cache:
+    image: redis:7-alpine
+    command:
+    - sh
+    - -c # this is to evaluate the $REDIS_PASSWORD from the env
+    - redis-server --requirepass $$REDIS_PASSWORD ## $$ because of docker-compose
+    env_file: env/redis-cache.env
+    networks:
+      - default
+ 
+volumes:
+  netbox-media-files:
+    driver: local
+  netbox-postgres-data:
+    driver: local
+  netbox-redis-data:
+    driver: local
+  netbox-proxy-logs:
+    driver: local
+
+networks:
+  default:
+  traefik:
+    external:
+      name: essentials_default
